@@ -1,0 +1,33 @@
+/* Separate account entry points; workspace styling remains in app.css. */
+.login{padding:24px}
+.login-card{width:480px;max-width:100%}
+.login-card.role-picker{width:900px;padding:40px}
+.login-brand{display:flex;align-items:center;gap:14px}
+.login-brand .brand-mark{margin:0;width:48px;height:48px}
+.login-brand h1{font-size:25px;margin:0}
+.login-brand p{margin:3px 0 0;color:#74859a;font-size:12px}
+.login-card .login-heading{font-size:26px;margin:10px 0}
+.login-card .notice{margin-top:20px}
+.role-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:26px 0}
+.role-option{display:flex;flex-direction:column;border:1px solid #dce5f0;background:#f8fafd;border-radius:12px;padding:23px;color:#24344a;transition:border-color .15s,background .15s}
+.role-option:hover{border-color:#608ed6;background:#edf4ff}
+.role-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:#e4edfc;color:#285bc6;font-size:19px;font-weight:700}
+.role-option h3{font-size:20px;margin:16px 0 6px}
+.role-option p{font-size:13px;color:#62758e;margin:0 0 24px}
+.role-link{color:#285bc6;font-size:12px;font-weight:700;margin-top:auto}
+.role-link span{margin-left:5px}
+.back-to-logins{display:inline-block;font-size:12px;margin-bottom:8px}
+.login-switcher{display:flex;background:#f0f4f9;padding:4px;gap:4px;border-radius:9px;margin:22px 0}
+.login-switcher a{flex:1;text-align:center;padding:8px 4px;border-radius:6px;color:#5c6f87;font-size:12px;font-weight:600}
+.login-switcher a[aria-current=page]{background:#fff;color:#285bc6;box-shadow:0 1px 4px #142b4d15}
+.login-card .login-help{border-top:1px solid #e4ebf4;padding-top:18px;margin-top:24px;font-size:12px;line-height:1.7;color:#62758e}
+.login-card .demo-note{margin-top:18px}
+@media(max-width:620px){
+ .login{padding:16px}
+ .login-card,.login-card.role-picker{padding:26px 22px}
+ .role-options{grid-template-columns:1fr;gap:12px;margin:22px 0}
+ .role-option{padding:18px}
+ .role-option h3{margin-top:10px}
+ .role-option p{margin-bottom:14px}
+ .login-brand h1{font-size:22px}
+}

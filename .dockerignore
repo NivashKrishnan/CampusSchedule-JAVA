@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!src/
+!src/app/
+!src/app/*.java
+!WebContent/
+!WebContent/**
+WebContent/WEB-INF/classes/
+!deployment/
+!deployment/CreateAdmin.java
+!deployment/server.xml

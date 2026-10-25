@@ -147,3 +147,20 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Java application, private data and Android signing material
+.local/
+.demo/
+.private-backups/
+*.credential.xml
+*.credentials.xml
+*.p12
+*.jks
+*.keystore
+*.sql.dump
+cloud-import.sql
+WebContent/WEB-INF/classes/
+test-classes/
+Timetable.war
+android/build/
+*.idsig
