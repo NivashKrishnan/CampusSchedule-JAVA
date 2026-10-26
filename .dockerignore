@@ -9,3 +9,5 @@ WebContent/WEB-INF/classes/
 !deployment/
 !deployment/CreateAdmin.java
 !deployment/server.xml
+!deployment/root/
+!deployment/root/index.jsp

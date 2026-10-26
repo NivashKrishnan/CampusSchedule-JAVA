@@ -13,6 +13,7 @@ FROM tomcat:9.0-jdk8-temurin
 COPY --from=build /build/Timetable.war /usr/local/tomcat/webapps/Timetable.war
 COPY --from=build /build/bootstrap /opt/timetable-bootstrap
 COPY deployment/server.xml /usr/local/tomcat/conf/server.xml
+COPY deployment/root/ /usr/local/tomcat/webapps/ROOT/
 ENV TIMETABLE_PUBLIC_DEPLOYMENT=true
 ENV JAVA_OPTS="-Xms64m -Xmx384m -Dfile.encoding=UTF-8"
 EXPOSE 8080
