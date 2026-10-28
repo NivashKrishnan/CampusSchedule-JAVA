@@ -40,3 +40,22 @@ live requests are still required before claiming the deployment works.
 References:
 - https://vercel.com/docs/functions/runtimes/container
 - https://vercel.com/docs/project-configuration/vercel-json
+
+## Database-free presentation mode
+
+Vercel now sets `TIMETABLE_DEMO_MODE=true` in `vercel.json`. In this mode,
+`/Timetable/app` redirects to `/Timetable/demo.html` before opening a session or
+connecting to a database. Every POST to `/app` is rejected with HTTP 403.
+The separate presentation uses only synthetic records and a fixed 48-period
+example; it offers navigation, record search and print/PDF, with no account
+creation, live scheduling or persistence. This is not a substitute for showing
+JDBC connectivity when the course requires it.
+
+To restore the full database-backed app, remove the demo setting or set it to
+false in the repository configuration, configure the database securely and
+redeploy. The original laptop project has not been changed.
+
+Validation: Java build passed; DemoModeCheck verified the demo GET/POST boundaries
+and normal authentication path. Browser checks passed for all six views, 48
+filled cells, search, an unknown route, desktop/mobile layouts and print/PDF.
+Live deployment still needs to be verified after pushing this change.

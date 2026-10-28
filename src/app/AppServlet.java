@@ -33,6 +33,10 @@ public final class AppServlet extends HttpServlet {
     protected void doGet(HttpServletRequest r,HttpServletResponse p)throws ServletException,IOException{
         p.setCharacterEncoding("UTF-8");p.setHeader("Cache-Control","no-store");p.setHeader("X-Content-Type-Options","nosniff");
         p.setHeader("X-Frame-Options","DENY");p.setHeader("Referrer-Policy","same-origin");
+        // Presentation mode exposes synthetic read-only data, never an authenticated session.
+        if("true".equalsIgnoreCase(System.getenv("TIMETABLE_DEMO_MODE"))){
+            p.sendRedirect(r.getContextPath()+"/demo.html");return;
+        }
         HttpSession session=r.getSession();if(session.getAttribute("csrf")==null)session.setAttribute("csrf",Security.token());
         if(session.getAttribute("user")==null){
             String role=text(r,"loginRole");
@@ -69,6 +73,9 @@ public final class AppServlet extends HttpServlet {
         r.getRequestDispatcher("/WEB-INF/app.jsp").forward(r,p);
     }
     protected void doPost(HttpServletRequest r,HttpServletResponse p)throws ServletException,IOException{
+        if("true".equalsIgnoreCase(System.getenv("TIMETABLE_DEMO_MODE"))){
+            p.sendError(403,"This presentation is read-only. Account and database actions are disabled.");return;
+        }
         r.setCharacterEncoding("UTF-8");HttpSession session=r.getSession();
         if(!text(r,"csrf").equals(session.getAttribute("csrf"))){p.sendError(403,"Session expired. Reload the page and try again.");return;}
         String action=text(r,"action");
