@@ -43,7 +43,7 @@ References:
 
 ## Database-free presentation mode
 
-Vercel now sets `TIMETABLE_DEMO_MODE=true` in `vercel.json`. In this mode,
+The earlier presentation release set `TIMETABLE_DEMO_MODE=true` in `vercel.json`. In this mode,
 `/Timetable/app` redirects to `/Timetable/demo.html` before opening a session or
 connecting to a database. Every POST to `/app` is rejected with HTTP 403.
 The separate presentation uses only synthetic records and a fixed 48-period
@@ -59,3 +59,8 @@ Validation: Java build passed; DemoModeCheck verified the demo GET/POST boundari
 and normal authentication path. Browser checks passed for all six views, 48
 filled cells, search, an unknown route, desktop/mobile layouts and print/PDF.
 Live deployment still needs to be verified after pushing this change.
+
+
+## Functional shared-file release
+
+The current configuration uses TIMETABLE_STORAGE=files and disables presentation mode. See [SHARED-FILES.md](SHARED-FILES.md) for private storage, owner setup, deployment requirements and verification status.

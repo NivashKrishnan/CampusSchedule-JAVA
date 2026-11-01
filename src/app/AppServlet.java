@@ -33,6 +33,7 @@ public final class AppServlet extends HttpServlet {
     protected void doGet(HttpServletRequest r,HttpServletResponse p)throws ServletException,IOException{
         p.setCharacterEncoding("UTF-8");p.setHeader("Cache-Control","no-store");p.setHeader("X-Content-Type-Options","nosniff");
         p.setHeader("X-Frame-Options","DENY");p.setHeader("Referrer-Policy","same-origin");
+        if("files".equals(System.getenv("TIMETABLE_STORAGE"))){FileApp.get(r,p);return;}
         // Presentation mode exposes synthetic read-only data, never an authenticated session.
         if("true".equalsIgnoreCase(System.getenv("TIMETABLE_DEMO_MODE"))){
             p.sendRedirect(r.getContextPath()+"/demo.html");return;
@@ -73,6 +74,7 @@ public final class AppServlet extends HttpServlet {
         r.getRequestDispatcher("/WEB-INF/app.jsp").forward(r,p);
     }
     protected void doPost(HttpServletRequest r,HttpServletResponse p)throws ServletException,IOException{
+        if("files".equals(System.getenv("TIMETABLE_STORAGE"))){FileApp.post(r,p);return;}
         if("true".equalsIgnoreCase(System.getenv("TIMETABLE_DEMO_MODE"))){
             p.sendError(403,"This presentation is read-only. Account and database actions are disabled.");return;
         }

@@ -11,3 +11,8 @@ WebContent/WEB-INF/classes/
 !deployment/server.xml
 !deployment/root/
 !deployment/root/index.jsp
+!deployment/start-cloud.sh
+!deployment/blob-bridge/
+!deployment/blob-bridge/package.json
+!deployment/blob-bridge/package-lock.json
+!deployment/blob-bridge/server.mjs

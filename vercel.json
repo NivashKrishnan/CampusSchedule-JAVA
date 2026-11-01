@@ -3,6 +3,7 @@
   "framework": "container",
   "env": {
     "PORT": "8080",
-    "TIMETABLE_DEMO_MODE": "true"
+    "TIMETABLE_DEMO_MODE": "false",
+    "TIMETABLE_STORAGE": "files"
   }
 }
