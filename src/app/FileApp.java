@@ -57,6 +57,10 @@ public final class FileApp {
         try{
             FileStore.Data d=FileStore.load(r);r.setAttribute("fileRevision",d.revision==null?"":d.revision);r.setAttribute("fileStorage",true);
             if(d.rows("users").isEmpty()){r.setAttribute("setupReady",setupReady());r.getRequestDispatcher("/WEB-INF/file-setup.jsp").forward(r,p);return;}
+            if(cloud()&&d.rows("classes").isEmpty()){
+                FileSeeder.seed(d);
+                try{FileStore.save(r,d);r.setAttribute("fileRevision",d.revision==null?"":d.revision);}catch(Exception e){r.getServletContext().log("Auto-seed save: "+e.getMessage());}
+            }
             Map<String,String> u=identity(r,d);if(u==null){r.getSession().removeAttribute("user");r.setAttribute("loginRole",t(r,"loginRole"));if(t(r,"page").equals("register")){r.setAttribute("registrationClasses",d.rows("classes"));r.setAttribute("registrationTeachers",d.rows("faculty"));r.getRequestDispatcher("/WEB-INF/register.jsp").forward(r,p);}else r.getRequestDispatcher("/WEB-INF/login.jsp").forward(r,p);return;}
             r.getSession().setAttribute("user",u.get("username"));String page=t(r,"page");if(page.isEmpty())page="dashboard";if(!Portal.allowed(u,page)){p.sendError(403);return;}load(r,d,u,page);
             if(page.equals("export")){export(p,entries(d,u,t(r,"id")),t(r,"id"));return;}r.getRequestDispatcher("/WEB-INF/app.jsp").forward(r,p);
@@ -73,7 +77,7 @@ public final class FileApp {
                 if(!d.rows("users").isEmpty())throw new SecurityException("The owner account already exists. Open a fresh page and sign in with that account.");
                 if(!setupReady())throw new SecurityException("Owner setup is not enabled on this deployment. Save TIMETABLE_SETUP_KEY with at least 32 characters for this project's Production environment, then redeploy.");
                 if(!constant(System.getenv("TIMETABLE_SETUP_KEY"),t(r,"setup_key")))throw new SecurityException("The setup key does not match this deployment. Enter the exact current value from your Production setting. If you changed it recently, redeploy first.");
-                if(!t(r,"password").equals(t(r,"confirm_password")))throw new IllegalArgumentException("Passwords do not match.");u=user(d,t(r,"username"),t(r,"password"),"admin","",true);audit(d,u.get("username"),"setup","Created owner account");FileStore.save(r,d);authenticate(p,u,d);
+                if(!t(r,"password").equals(t(r,"confirm_password")))throw new IllegalArgumentException("Passwords do not match.");u=user(d,t(r,"username"),t(r,"password"),"admin","",true);if(cloud())FileSeeder.seed(d);audit(d,u.get("username"),"setup","Created owner account");FileStore.save(r,d);authenticate(p,u,d);
             }else if(a.equals("login")){
                 destination="?loginRole="+safeRole(t(r,"loginRole"));Map<String,String> found=null;
                 if(t(r,"password").length()<=100&&t(r,"username").length()<=40)for(Map<String,String> x:d.rows("users"))if(eq(x.get("username"),t(r,"username"))&&eq(x.get("role"),t(r,"loginRole"))&&eq(x.get("active"),"1")&&Security.verify(t(r,"password"),x.get("salt"),x.get("password_hash")))found=x;
@@ -91,6 +95,7 @@ public final class FileApp {
     private static String safeRole(String role){return Arrays.asList("teacher","student","admin").contains(role)?role:"";}
     private static String action(HttpServletRequest r,FileStore.Data d,Map<String,String> u,String a)throws Exception{
         String table=t(r,"entity");
+        if(a.equals("seed")){FileSeeder.seed(d,true);return "?page=dashboard";}
         if(a.equals("save")){saveRecord(r,d,table);return "?page="+table;}
         if(a.equals("delete")){deleteRecord(d,table,t(r,"id"));return "?page="+table;}
         if(a.equals("generate"))return "?page=timetable&id="+generate(r,d);

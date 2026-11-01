@@ -64,3 +64,4 @@ INSERT INTO `subjects` (`id`, `name`, `class_id`, `faculty_id`, `weekly_hours`, 
 (11, 'Mentor Hour (MH)', 1, 3, 1, 'Theory'),
 (12, 'Library / HOD Hour (LIB/HH)', 1, 10, 1, 'Theory')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `weekly_hours`=VALUES(`weekly_hours`);
+

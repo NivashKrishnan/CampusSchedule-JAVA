@@ -38,7 +38,7 @@ function launch(port,configuredKey=setupKey){
   const log=fs.openSync(path.join(base,'server.log'),'a');
   const child=spawn(java,[`-Dcatalina.home=${tomcat}`,`-Dcatalina.base=${base}`,`-Djava.io.tmpdir=${base}/temp`,'-cp',`${tomcat}/bin/bootstrap.jar;${tomcat}/bin/tomcat-juli.jar`,'org.apache.catalina.startup.Bootstrap','start'],{env:{...process.env,TIMETABLE_STORAGE:'files',TIMETABLE_PUBLIC_DEPLOYMENT:'false',TIMETABLE_SETUP_KEY:configuredKey},stdio:['ignore',log,log],windowsHide:true});children.push(child);return child;
 }
-async function ready(port){for(let i=0;i<60;i++){try{const res=await fetch(`http://127.0.0.1:${port}/Timetable/app`);if(res.status===200)return;}catch{}await new Promise(r=>setTimeout(r,500));}throw new Error('Tomcat startup failed; inspect '+work);}
+async function ready(port){for(let i=0;i<120;i++){try{const res=await fetch(`http://127.0.0.1:${port}/Timetable/app`);if(res.status===200)return;}catch{}await new Promise(r=>setTimeout(r,500));}throw new Error('Tomcat startup failed; inspect '+work);}
 class Client{
   constructor(port=18081){this.port=port;this.cookies={};}
   async request(query='',form){const response=await fetch(`http://127.0.0.1:${this.port}/Timetable/app${query}`,{method:form?'POST':'GET',headers:{Cookie:Object.entries(this.cookies).map(([k,v])=>`${k}=${v}`).join('; '),...(form?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});for(const c of response.headers.getSetCookie()){const [k,v]=c.split(';')[0].split('=');this.cookies[k]=v;}return {status:response.status,location:response.headers.get('location'),text:await response.text()};}
