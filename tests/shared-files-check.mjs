@@ -29,14 +29,14 @@ const bridge=http.createServer(async(req,res)=>{
 });
 await new Promise((resolve,reject)=>bridge.once('error',reject).listen(8181,'127.0.0.1',resolve));
 const children=[];
-function launch(port){
+function launch(port,configuredKey=setupKey){
   const base=path.join(work,'tomcat-'+port);fs.mkdirSync(base,{recursive:true});
   for(const dir of ['conf','logs','temp','work','webapps'])fs.mkdirSync(path.join(base,dir),{recursive:true});
   fs.cpSync(path.join(tomcat,'conf'),path.join(base,'conf'),{recursive:true});
   fs.copyFileSync(path.join(root,'Timetable.war'),path.join(base,'webapps','Timetable.war'));
   fs.writeFileSync(path.join(base,'conf','server.xml'),`<Server port="-1"><Service name="Catalina"><Connector address="127.0.0.1" port="${port}" maxPostSize="65536"/><Engine name="Catalina" defaultHost="localhost"><Host name="localhost" appBase="webapps" autoDeploy="false"><Valve className="org.apache.catalina.valves.ErrorReportValve" showReport="false" showServerInfo="false"/></Host></Engine></Service></Server>`);
   const log=fs.openSync(path.join(base,'server.log'),'a');
-  const child=spawn(java,[`-Dcatalina.home=${tomcat}`,`-Dcatalina.base=${base}`,`-Djava.io.tmpdir=${base}/temp`,'-cp',`${tomcat}/bin/bootstrap.jar;${tomcat}/bin/tomcat-juli.jar`,'org.apache.catalina.startup.Bootstrap','start'],{env:{...process.env,TIMETABLE_STORAGE:'files',TIMETABLE_PUBLIC_DEPLOYMENT:'false',TIMETABLE_SETUP_KEY:setupKey},stdio:['ignore',log,log],windowsHide:true});children.push(child);return child;
+  const child=spawn(java,[`-Dcatalina.home=${tomcat}`,`-Dcatalina.base=${base}`,`-Djava.io.tmpdir=${base}/temp`,'-cp',`${tomcat}/bin/bootstrap.jar;${tomcat}/bin/tomcat-juli.jar`,'org.apache.catalina.startup.Bootstrap','start'],{env:{...process.env,TIMETABLE_STORAGE:'files',TIMETABLE_PUBLIC_DEPLOYMENT:'false',TIMETABLE_SETUP_KEY:configuredKey},stdio:['ignore',log,log],windowsHide:true});children.push(child);return child;
 }
 async function ready(port){for(let i=0;i<60;i++){try{const res=await fetch(`http://127.0.0.1:${port}/Timetable/app`);if(res.status===200)return;}catch{}await new Promise(r=>setTimeout(r,500));}throw new Error('Tomcat startup failed; inspect '+work);}
 class Client{
@@ -49,9 +49,11 @@ class Client{
 let passes=0;
 function pass(s){console.log('PASS '+s);passes++;}
 try{
-  let first=launch(18081);launch(18082);await Promise.all([ready(18081),ready(18082)]);
+  let first=launch(18081);launch(18082,'');await Promise.all([ready(18081),ready(18082)]);
+  const missingKey=new Client(18082);const unavailable=await missingKey.request();assert.match(unavailable.text,/Owner setup is not enabled/);assert.ok(!unavailable.text.includes('name="setup_key"'));
+  const denied=await missingKey.request('',{action:'setup',csrf:missingKey.cookies.csCsrf,setup_key:setupKey,username:'owner',password,confirm_password:password});assert.equal(denied.status,403);assert.match(denied.text,/Production environment, then redeploy/);assert.ok(!fs.existsSync(stateFile));pass('missing setup configuration explains redeploy requirement without writing data');
   const admin=new Client();await admin.request();
-  assert.equal((await admin.request('',{action:'setup',csrf:admin.cookies.csCsrf,setup_key:'wrong',username:'owner',password,confirm_password:password})).status,403);
+  const wrongKey=await admin.request('',{action:'setup',csrf:admin.cookies.csCsrf,setup_key:'wrong',username:'owner',password,confirm_password:password});assert.equal(wrongKey.status,403);assert.match(wrongKey.text,/setup key does not match/);assert.ok(!wrongKey.text.includes(setupKey));
   assert.equal((await admin.request('',{action:'setup',csrf:admin.cookies.csCsrf,setup_key:setupKey,username:'owner',password,confirm_password:password})).status,302);
   assert.ok(admin.cookies.csAuth);pass('owner setup requires private key and closes after creation');
   assert.equal((await admin.request('',{action:'setup',csrf:admin.cookies.csCsrf,setup_key:setupKey,username:'other',password,confirm_password:password})).status,403);
@@ -70,7 +72,7 @@ try{
   await admin.post({action:'save',entity:'departments',name:'Temporary'});await admin.post({action:'save',entity:'departments',id:'2',name:'Edited'});assert.match(await second.page('departments'),/Edited/);await admin.post({action:'delete',entity:'departments',id:'2'});await admin.post({action:'delete',entity:'departments',id:'1'},'departments',400);pass('edit/delete and linked-record protection');
   const stale=await admin.page('departments');const staleRev=stale.match(/name="revision" value="([^"]*)"/)[1].replaceAll('&quot;','"');await second.post({action:'save',entity:'departments',name:'Second user change'});
   assert.equal((await admin.request('',{action:'save',entity:'departments',name:'Stale change',csrf:admin.cookies.csCsrf,revision:staleRev})).status,409);pass('stale form edits rejected without overwriting newer changes');
-  assert.equal((await admin.request('',{action:'save',entity:'departments',name:'CSRF attack',csrf:'wrong'})).status,403);pass('CSRF rejected');
+  const badCsrf=await admin.request('',{action:'save',entity:'departments',name:'CSRF attack',csrf:'wrong'});assert.equal(badCsrf.status,403);assert.match(badCsrf.text,/form is no longer valid/);pass('CSRF rejected with recovery instructions');
   const generated=await admin.post({action:'generate',name:'Complete teaching week',class_id:'1',days:'6',periods:'8',coverage:'full'});
   assert.match(generated.location,/id=1$/);const timetable=await admin.page('timetable&id=1');assert.equal((timetable.match(/class="lesson"/g)||[]).length,48);assert.ok(!timetable.includes('class="free"'));assert.equal((await admin.request('?page=export&id=1')).text.trim().split('\n').length,49);pass('full 48-period generation, saved retrieval and CSV');
   await admin.page('timetable&id=1&view=teacher');await admin.page('timetable&id=1&view=room');await admin.page('reports&id=1');pass('teacher/room views and workload reports');

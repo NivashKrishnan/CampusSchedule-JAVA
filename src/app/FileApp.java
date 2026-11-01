@@ -15,6 +15,11 @@ public final class FileApp {
     private static boolean eq(String a,String b){return a!=null&&a.equals(b);}
     private static Map<String,String> row(String... pairs){Map<String,String> m=new LinkedHashMap<String,String>();for(int i=0;i<pairs.length;i+=2)m.put(pairs[i],pairs[i+1]);return m;}
     private static String now(){return java.time.Instant.now().toString();}
+    private static boolean setupReady(){String key=System.getenv("TIMETABLE_SETUP_KEY");return key!=null&&key.length()>=32;}
+    private static void error(HttpServletResponse p,int status,String message)throws IOException{
+        p.setStatus(status);p.setCharacterEncoding("UTF-8");p.setContentType("text/html;charset=UTF-8");p.setHeader("Cache-Control","no-store");p.setHeader("X-Content-Type-Options","nosniff");p.setHeader("X-Frame-Options","DENY");
+        p.getWriter().write("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Request not completed | CampusSchedule</title><link rel='stylesheet' href='assets/app.css'><link rel='stylesheet' href='assets/login.css'></head><body class='login'><main class='login-card'><h1>Request not completed</h1><p role='alert'>"+Security.html(message)+"</p><a class='button primary' href='app'>Open a fresh page</a></main></body></html>");
+    }
     private static boolean cloud(){return "true".equalsIgnoreCase(System.getenv("TIMETABLE_PUBLIC_DEPLOYMENT"));}
     private static String cookieName(String kind){return (cloud()?"__Host-":"")+"cs"+kind;}
     private static String cookie(HttpServletRequest r,String kind){if(r.getCookies()!=null)for(Cookie c:r.getCookies())if(cookieName(kind).equals(c.getName()))return c.getValue();return "";}
@@ -51,21 +56,23 @@ public final class FileApp {
         String csrf=cookie(r,"Csrf");if(!csrf.matches("[A-Za-z0-9_-]{32}")){csrf=Security.token();cookie(p,"Csrf",csrf,28800);}r.getSession().setAttribute("csrf",csrf);
         try{
             FileStore.Data d=FileStore.load(r);r.setAttribute("fileRevision",d.revision==null?"":d.revision);r.setAttribute("fileStorage",true);
-            if(d.rows("users").isEmpty()){r.getRequestDispatcher("/WEB-INF/file-setup.jsp").forward(r,p);return;}
+            if(d.rows("users").isEmpty()){r.setAttribute("setupReady",setupReady());r.getRequestDispatcher("/WEB-INF/file-setup.jsp").forward(r,p);return;}
             Map<String,String> u=identity(r,d);if(u==null){r.getSession().removeAttribute("user");r.setAttribute("loginRole",t(r,"loginRole"));if(t(r,"page").equals("register")){r.setAttribute("registrationClasses",d.rows("classes"));r.setAttribute("registrationTeachers",d.rows("faculty"));r.getRequestDispatcher("/WEB-INF/register.jsp").forward(r,p);}else r.getRequestDispatcher("/WEB-INF/login.jsp").forward(r,p);return;}
             r.getSession().setAttribute("user",u.get("username"));String page=t(r,"page");if(page.isEmpty())page="dashboard";if(!Portal.allowed(u,page)){p.sendError(403);return;}load(r,d,u,page);
             if(page.equals("export")){export(p,entries(d,u,t(r,"id")),t(r,"id"));return;}r.getRequestDispatcher("/WEB-INF/app.jsp").forward(r,p);
         }catch(SecurityException e){p.sendError(403,e.getMessage());}catch(IllegalArgumentException e){p.sendError(400,e.getMessage());}catch(IOException e){p.sendError(503,"Shared file storage is temporarily unavailable. No records have been changed.");}
     }
     public static void post(HttpServletRequest r,HttpServletResponse p)throws ServletException,IOException{
-        r.setCharacterEncoding("UTF-8");p.setHeader("Cache-Control","no-store");String csrf=cookie(r,"Csrf");if(csrf.isEmpty()||!constant(csrf,t(r,"csrf"))){p.sendError(403,"Reload the page and try again.");return;}
+        r.setCharacterEncoding("UTF-8");p.setHeader("Cache-Control","no-store");String csrf=cookie(r,"Csrf");if(csrf.isEmpty()||!constant(csrf,t(r,"csrf"))){error(p,403,"This form is no longer valid. Open a fresh page, then enter your details again. Allow cookies for this website.");return;}
         String a=t(r,"action"),destination="?page=dashboard";
         if(Arrays.asList("login","register","setup").contains(a)&&!AuthThrottle.allow(a.equals("setup")?"register":a,r.getRemoteAddr(),System.currentTimeMillis())){p.sendError(429,"Too many attempts. Try again later.");return;}
         try{
             FileStore.Data d=FileStore.load(r);Map<String,String> u=identity(r,d);
             if(a.equals("logout")){if(u!=null){u.put("version",Security.token());FileStore.save(r,d);}cookie(p,"Auth","",0);r.getSession().invalidate();p.sendRedirect(r.getContextPath()+"/app");return;}
             if(a.equals("setup")){
-                String key=System.getenv("TIMETABLE_SETUP_KEY");if(!d.rows("users").isEmpty()||key==null||key.length()<32||!constant(key,t(r,"setup_key")))throw new SecurityException("Owner setup is unavailable or the setup key is incorrect.");
+                if(!d.rows("users").isEmpty())throw new SecurityException("The owner account already exists. Open a fresh page and sign in with that account.");
+                if(!setupReady())throw new SecurityException("Owner setup is not enabled on this deployment. Save TIMETABLE_SETUP_KEY with at least 32 characters for this project's Production environment, then redeploy.");
+                if(!constant(System.getenv("TIMETABLE_SETUP_KEY"),t(r,"setup_key")))throw new SecurityException("The setup key does not match this deployment. Enter the exact current value from your Production setting. If you changed it recently, redeploy first.");
                 if(!t(r,"password").equals(t(r,"confirm_password")))throw new IllegalArgumentException("Passwords do not match.");u=user(d,t(r,"username"),t(r,"password"),"admin","",true);audit(d,u.get("username"),"setup","Created owner account");FileStore.save(r,d);authenticate(p,u,d);
             }else if(a.equals("login")){
                 destination="?loginRole="+safeRole(t(r,"loginRole"));Map<String,String> found=null;
@@ -78,7 +85,7 @@ public final class FileApp {
                 if(!constant(d.revision,t(r,"revision")))throw new ConcurrentModificationException("Another user saved changes. Reload this page before saving again.");
                 destination=action(r,d,u,a);audit(d,u.get("username"),a,"Saved "+a+" changes");FileStore.save(r,d);if(a.equals("account"))authenticate(p,u,d);r.getSession().setAttribute("message","Changes saved to shared file storage.");r.getSession().setAttribute("error",false);
             }
-        }catch(SecurityException e){p.sendError(403,e.getMessage());return;}catch(ConcurrentModificationException e){p.sendError(409,e.getMessage());return;}catch(IllegalArgumentException e){r.getSession().setAttribute("message",e.getMessage());r.getSession().setAttribute("error",true);if(!Arrays.asList("login","register","setup").contains(a)){p.setStatus(400);p.setContentType("text/html;charset=UTF-8");p.getWriter().write("<!doctype html><meta name=viewport content='width=device-width'><h1>Change not saved</h1><p>"+Security.html(e.getMessage())+"</p><a href='app'>Return to workspace</a>");return;}}catch(Exception e){r.getServletContext().log("Shared file operation failed: "+e.getClass().getSimpleName());p.sendError(503,"Shared storage is unavailable. The change could not be confirmed. Reload before retrying.");return;}
+        }catch(SecurityException e){error(p,403,e.getMessage());return;}catch(ConcurrentModificationException e){error(p,409,e.getMessage());return;}catch(IllegalArgumentException e){error(p,400,e.getMessage());return;}catch(Exception e){r.getServletContext().log("Shared file operation failed: "+e.getClass().getSimpleName());error(p,503,"Shared storage is unavailable. The change could not be confirmed. Open a fresh page before retrying.");return;}
         p.sendRedirect(r.getContextPath()+"/app"+destination);
     }
     private static String safeRole(String role){return Arrays.asList("teacher","student","admin").contains(role)?role:"";}
